@@ -20,17 +20,22 @@ exports.compile = (input, options, callback) ->
   args = ['-jar', JAR_PATH]
 
   Object.keys(options).forEach (key) ->
-    args.push "--$key"
-    args.push "${options[key]}"
+    return if options[key] is false
+    args.push "--#{key}"
+    args.push "#{options[key]}" unless options[key] is true
 
   compiler = spawn JAVA_PATH, args
   result = ''
+  error = ''
 
   compiler.stdout.addListener 'data', (data) ->
     result += data
+  compiler.stderr.addListener 'data', (data) ->
+    error += data
 
   compiler.addListener 'exit', (code) ->
-    callback result
+    return callback(null, result) if code is 0
+    errors = (/ERROR - (.+)/).exec(error)
+    return callback(new Error(errors[1] or 'unknown error'), null)
 
-  compiler.stdin.write input
-  compiler.stdin.end()
+  compiler.stdin.end(input)
